@@ -1,3 +1,5 @@
+let mapleader = " "
+
 set number
 set hls
 
@@ -15,20 +17,41 @@ set softtabstop=2   " In insert mode, <Tab>/<BS> tab or backsapce counts as 2 sp
 " Automatically remove trailing whitespace before saving
 autocmd BufWritePre * :%s/\s\+$//e
 
-set spell
-set spelllang=en_us,cjk   " check both English and Chinese
-
+" set spell
+" set spelllang=en_us,cjk   " check both English and Chinese
 
 call plug#begin()
 Plug 'bfrg/vim-c-cpp-modern', { 'for': ['c', 'cpp'] }
 Plug 'vim-autoformat/vim-autoformat'
+Plug 'junegunn/fzf', { 'do': { -> fzf#install() } }
+Plug 'junegunn/fzf.vim'
 call plug#end()
-
 
 augroup cpp_make
   autocmd!
-  autocmd FileType cpp setlocal makeprg=clang++\ -std=c++11\ %\ -o\ %<
+  autocmd FileType cpp setlocal makeprg=clang++\ -std=c++17\ %\ -o\ %<
   autocmd FileType c   setlocal makeprg=clang\ %\ -o\ %<
   autocmd FileType cpp setlocal errorformat=%f:%l:%c:\ %m
   autocmd FileType c   setlocal errorformat=%f:%l:%c:\ %m
 augroup END
+
+" copy to clippeboard
+nnoremap <leader>y "+yy
+vnoremap <leader>y "+y
+
+" last file cursor location
+au BufReadPost * if line("'\"") > 0 && line("'\"") <= line("$") |
+      \ exe "normal! g'\"" |
+
+autocmd QuickFixCmdPost [grep,make] if len(getqflist()) > 0 | copen | cfirst | endif
+
+command! -nargs=* Grep
+      \ call fzf#vim#grep('grep -rn . -e '.shellescape(<q-args>), 1, fzf#vim#with_preview(), <bang>0)
+
+command! -nargs=* -bang Ag
+  \ call fzf#vim#grep(
+  \   'grep -rn --exclude-dir=.git --exclude-dir=node_modules . -e ' . shellescape(<q-args>),
+  \   1,
+  \   fzf#vim#with_preview(),
+  \   <bang>0
+  \ )
