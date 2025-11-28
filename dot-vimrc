@@ -1,11 +1,20 @@
 let mapleader = " "
 
+set encoding=utf-8
 set number
 set hls
+set nowrap
+set ruler
+set laststatus=2
+set statusline=%F\ %l,%c
+set title
+set titlestring=%F
+autocmd FileType man setlocal number
 
 filetype on
 syntax on
 filetype plugin indent on
+colorscheme desert
 
 " Global setting: Tab and indentation are 2 spaces
 set tabstop=2       " A <Tab> is displayed as 2 spaces
@@ -13,18 +22,21 @@ set shiftwidth=2    " Use 2 spaces for each step of (auto)indent
 set expandtab       " Convert <Tab> into spaces
 set softtabstop=2   " In insert mode, <Tab>/<BS> tab or backsapce counts as 2 spaces
 
+let g:ale_linters = {
+\   'cpp': ['clangd'],
+\}
 
 " Automatically remove trailing whitespace before saving
 autocmd BufWritePre * :%s/\s\+$//e
 
-" set spell
-" set spelllang=en_us,cjk   " check both English and Chinese
-
 call plug#begin()
 Plug 'bfrg/vim-c-cpp-modern', { 'for': ['c', 'cpp'] }
-Plug 'vim-autoformat/vim-autoformat'
 Plug 'junegunn/fzf', { 'do': { -> fzf#install() } }
 Plug 'junegunn/fzf.vim'
+Plug 'andymass/vim-matchup'
+Plug 'neoclide/coc.nvim', {'branch': 'release'}
+Plug 'Yggdroot/indentLine'
+Plug 'tpope/vim-fugitive'
 call plug#end()
 
 augroup cpp_make
@@ -39,15 +51,17 @@ augroup END
 nnoremap <leader>y "+yy
 vnoremap <leader>y "+y
 
-" last file cursor location
+" return to last file cursor location
 au BufReadPost * if line("'\"") > 0 && line("'\"") <= line("$") |
       \ exe "normal! g'\"" |
 
-autocmd QuickFixCmdPost [grep,make] if len(getqflist()) > 0 | copen | cfirst | endif
+autocmd QuickFixCmdPost grep,make if len(getqflist()) > 0 | copen | cfirst | endif
 
+" fzf
 command! -nargs=* Grep
       \ call fzf#vim#grep('grep -rn . -e '.shellescape(<q-args>), 1, fzf#vim#with_preview(), <bang>0)
 
+" fzf
 command! -nargs=* -bang Ag
   \ call fzf#vim#grep(
   \   'grep -rn --exclude-dir=.git --exclude-dir=node_modules . -e ' . shellescape(<q-args>),
@@ -55,3 +69,156 @@ command! -nargs=* -bang Ag
   \   fzf#vim#with_preview(),
   \   <bang>0
   \ )
+
+let g:matchup_matchparen_status_offscreen = 0
+
+function! CheckBackspace() abort
+  let col = col('.') - 1
+  return !col || getline('.')[col - 1] =~# '\s'
+endfunction
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+"CoC"
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" Tab
+inoremap <silent><expr> <TAB>
+      \ coc#pum#visible() ? coc#pum#next(1) :
+      \ CheckBackspace() ? "\<Tab>" :
+      \ coc#refresh()
+
+" Shift Tab
+inoremap <expr><S-TAB> coc#pum#visible() ? coc#pum#prev(1) : "\<C-h>"
+
+" Enter
+inoremap <silent><expr> <CR> coc#pum#visible() ? coc#pum#confirm()
+                              \: "\<C-g>u\<CR>\<c-r>=coc#on_enter()\<CR>"
+
+" Use `[g` and `]g` to navigate diagnostics
+" Use `:CocDiagnostics` to get all diagnostics of current buffer in location list
+set signcolumn=no
+nmap <silent><nowait> [g <Plug>(coc-diagnostic-prev)
+nmap <silent><nowait> ]g <Plug>(coc-diagnostic-next)
+
+" 1. Go to Definition
+" Standard LSP mapping
+nmap <silent><nowait> gd <Plug>(coc-definition)
+" Ctags style mapping (Alias)
+nmap <silent><nowait> <C-]> <Plug>(coc-definition)
+
+" 2. Go Back (Jump back)
+" Standard Vim jump back
+" (Ctrl-o is built-in, no mapping needed usually, but we map Ctrl-t to it)
+" Ctags style mapping for 'pop stack'
+nmap <silent><nowait> <C-t> <C-o>
+
+" 3. Other LSP navigations (Keep standard 'g' mappings)
+nmap <silent><nowait> gy <Plug>(coc-type-definition)
+nmap <silent><nowait> gi <Plug>(coc-implementation)
+nmap <silent><nowait> gr <Plug>(coc-references)
+" cscope style mapping (Alias)
+nmap <silent> <C-\>s <Plug>(coc-references)
+
+" Map 'K' to call our custom function 'ShowDocumentation'
+" The <silent> flag ensures no command line output is shown.
+nnoremap <silent> K :call ShowDocumentation()<CR>
+
+function! ShowDocumentation()
+  " Step 1: Check if Coc (LSP) can provide documentation (hover info)
+  if CocAction('hasProvider', 'hover')
+    " If yes, ask Coc to show the docs (like a tooltip in VS Code)
+    call CocActionAsync('doHover')
+  else
+    " Step 2: Fallback. If Coc can't help (e.g., in a plain text file),
+    " simulate pressing 'K' natively to look up the man page.
+    " 'in' flags mean: (i)nsert keys, (n)o remapping (to avoid loop)
+    call feedkeys('K', 'in')
+  endif
+endfunction
+
+set updatetime=200
+autocmd CursorHold * silent call CocActionAsync('highlight')
+
+" Symbol renaming
+nmap <leader>rn <Plug>(coc-rename)
+
+" Formatting selected code
+xmap <leader>f  <Plug>(coc-format-selected)
+nmap <leader>f  <Plug>(coc-format-selected)
+
+" Applying code actions to the selected code block
+" Example: `<leader>aap` for current paragraph
+xmap <leader>a  <Plug>(coc-codeaction-selected)
+nmap <leader>a  <Plug>(coc-codeaction-selected)
+
+" Remap keys for applying code actions at the cursor position
+nmap <leader>ac  <Plug>(coc-codeaction-cursor)
+" Remap keys for apply code actions affect whole buffer
+nmap <leader>as  <Plug>(coc-codeaction-source)
+" Apply the most preferred quickfix action to fix diagnostic on the current line
+nmap <leader>qf  <Plug>(coc-fix-current)
+
+" Remap keys for applying refactor code actions
+nmap <silent> <leader>re <Plug>(coc-codeaction-refactor)
+xmap <silent> <leader>r  <Plug>(coc-codeaction-refactor-selected)
+nmap <silent> <leader>r  <Plug>(coc-codeaction-refactor-selected)
+
+" Map function and class text objects
+" NOTE: Requires 'textDocument.documentSymbol' support from the language server
+xmap if <Plug>(coc-funcobj-i)
+omap if <Plug>(coc-funcobj-i)
+xmap af <Plug>(coc-funcobj-a)
+omap af <Plug>(coc-funcobj-a)
+xmap ic <Plug>(coc-classobj-i)
+omap ic <Plug>(coc-classobj-i)
+xmap ac <Plug>(coc-classobj-a)
+omap ac <Plug>(coc-classobj-a)
+
+
+" Remap <C-f> and <C-b> to scroll float windows/popups
+nnoremap <silent><nowait><expr> <C-f> coc#float#has_scroll() ? coc#float#scroll(1) : "\<C-f>"
+nnoremap <silent><nowait><expr> <C-b> coc#float#has_scroll() ? coc#float#scroll(0) : "\<C-b>"
+inoremap <silent><nowait><expr> <C-f> coc#float#has_scroll() ? "\<c-r>=coc#float#scroll(1)\<cr>" : "\<Right>"
+inoremap <silent><nowait><expr> <C-b> coc#float#has_scroll() ? "\<c-r>=coc#float#scroll(0)\<cr>" : "\<Left>"
+vnoremap <silent><nowait><expr> <C-f> coc#float#has_scroll() ? coc#float#scroll(1) : "\<C-f>"
+vnoremap <silent><nowait><expr> <C-b> coc#float#has_scroll() ? coc#float#scroll(0) : "\<C-b>"
+
+" Use CTRL-S for selections ranges
+" Requires 'textDocument/selectionRange' support of language server
+nmap <silent> <C-s> <Plug>(coc-range-select)
+xmap <silent> <C-s> <Plug>(coc-range-select)
+
+" Add `:Format` command to format current buffer
+command! -nargs=0 Format :call CocActionAsync('format')
+" Add `:Fold` command to fold current buffer
+command! -nargs=? Fold :call     CocAction('fold', <f-args>)
+" Add `:OR` command for organize imports of the current buffer
+command! -nargs=0 OR   :call     CocActionAsync('runCommand', 'editor.action.organizeImport')
+
+set statusline^=%{coc#status()}%{get(b:,'coc_current_function','')}
+" Mappings for CoCList
+" Show all diagnostics
+nnoremap <silent><nowait> <space>a  :<C-u>CocList diagnostics<cr>
+" Manage extensions
+nnoremap <silent><nowait> <space>e  :<C-u>CocList extensions<cr>
+" Show commands
+nnoremap <silent><nowait> <space>c  :<C-u>CocList commands<cr>
+" Find symbol of current document
+nnoremap <silent><nowait> <space>o  :<C-u>CocList outline<cr>
+" Search workspace symbols
+nnoremap <silent><nowait> <space>s  :<C-u>CocList -I symbols<cr>
+" Do default action for next item
+nnoremap <silent><nowait> <space>j  :<C-u>CocNext<CR>
+" Do default action for previous item
+nnoremap <silent><nowait> <space>k  :<C-u>CocPrev<CR>
+" Resume latest coc list
+nnoremap <silent><nowait> <space>p  :<C-u>CocListResume<CR>
+
+" incase wrong key when press esc
+map <F1> <Nop>
+imap <F1> <Nop>
+
+" for indent
+let g:indentLine_char = '│'
+let g:indentLine_first_char = '│'
+let g:indentLine_showFirstIndentLevel = 1
+let g:indentLine_setColors = 0
