@@ -6,9 +6,11 @@ set hls
 set nowrap
 set ruler
 set laststatus=2
-set statusline=%F\ %l,%c
+set statusline=%F\ %m%=\ [%{GetCurrentBufferIndex()}/%{GetBufferCount()}]\ [%l/%L,\ %p%%]\ [%l:%c]
 set title
 set titlestring=%F
+" show the hls count
+set shortmess-=S
 autocmd FileType man setlocal number
 
 filetype on
@@ -38,6 +40,8 @@ Plug 'neoclide/coc.nvim', {'branch': 'release'}
 Plug 'Yggdroot/indentLine'
 Plug 'tpope/vim-fugitive'
 call plug#end()
+" for the remote to copy to clipboard
+" Plug 'ojroques/vim-oscyank'
 
 augroup cpp_make
   autocmd!
@@ -47,7 +51,7 @@ augroup cpp_make
   autocmd FileType c   setlocal errorformat=%f:%l:%c:\ %m
 augroup END
 
-" copy to clippeboard
+" copy to clipboard
 nnoremap <leader>y "+yy
 vnoremap <leader>y "+y
 
@@ -222,3 +226,14 @@ let g:indentLine_char = '│'
 let g:indentLine_first_char = '│'
 let g:indentLine_showFirstIndentLevel = 1
 let g:indentLine_setColors = 0
+
+" status line
+function! GetBufferCount()
+    return len(filter(range(1, bufnr('$')), 'buflisted(v:val)'))
+endfunction
+
+function! GetCurrentBufferIndex()
+    let l:listed_buffers = filter(range(1, bufnr('$')), 'buflisted(v:val)')
+    return index(l:listed_buffers, bufnr('%')) + 1
+endfunction
+
